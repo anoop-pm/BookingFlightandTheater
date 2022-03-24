@@ -15,6 +15,12 @@ import java.util.Random;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+import org.springframework.stereotype.Component;
+
+@Component
 public class BookingUtilities {
 
 	public Boolean emailPhoneValid(String email, String phone) {
@@ -148,7 +154,7 @@ public class BookingUtilities {
 
 	}
 
-	public static boolean validateJavaDate(String strDate) {
+	public boolean validateJavaDate(String strDate) {
 		/* Check if date is 'null' */
 		String regex = "^(3[01]|[12][0-9]|0[1-9])/(1[0-2]|0[1-9])/[0-9]{4}$";
 		Pattern pattern = Pattern.compile(regex);
@@ -162,7 +168,7 @@ public class BookingUtilities {
 
 	}
 
-	public static boolean datebetween(String from, String to, String selected) throws ParseException {
+	public boolean datebetween(String from, String to, String selected) throws ParseException {
 
 		boolean validDate = false;
 		SimpleDateFormat simpleDateFormat = new SimpleDateFormat("dd/MM/yyyy", Locale.ENGLISH);
@@ -189,7 +195,7 @@ public class BookingUtilities {
 		return validDate;
 	}
 
-	public static boolean validDay(String day) {
+	public boolean validDay(String day) {
 		boolean valid = false;
 		String[] days = new DateFormatSymbols().getWeekdays();
 		for (int i = 0; i < days.length; i++) {
@@ -202,4 +208,29 @@ public class BookingUtilities {
 		return valid;
 
 	}
+
+	public boolean isJSONValid(String test) {
+
+		try {
+
+			new JSONObject(test);
+
+		} catch (JSONException ex) {
+
+			try {
+
+				new JSONArray(test);
+
+			} catch (JSONException ex1) {
+
+				return false;
+
+			}
+
+		}
+
+		return true;
+
+	}
+
 }

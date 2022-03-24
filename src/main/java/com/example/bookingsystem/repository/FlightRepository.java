@@ -54,6 +54,8 @@ public interface FlightRepository extends JpaRepository<FlightDetails, Long> {
 	@Query(value = "select flight_name from flight_details u where u.flight_id =:flightNameByid", nativeQuery = true)
 	String getFlightNameByid(@Param("flightNameByid") int flightNameByid);
 
+
+
 	@Transactional
 	@Modifying
 	@Query("UPDATE FlightDetails SET seats   = :newseat WHERE  flight_id = :seatflightid")

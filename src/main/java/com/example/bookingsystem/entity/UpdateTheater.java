@@ -15,6 +15,16 @@ public class UpdateTheater {
 	private int theaterid;
 
 	@NotNull
+	@Min(value=1,message="Please Fill Economic Seats")
+	@ApiModelProperty(notes = "The application-specific Flight ID")
+	private int numberofeconomicseat;
+
+	@NotNull
+	@Min(value=1,message="Please Fill Business Seat")
+	@ApiModelProperty(notes = "The application-specific Flight ID")
+	private int numberofbusinessseat;
+
+	@NotNull
 	@Column(name = "fromdate", length = 2000)
 	@ApiModelProperty(notes = "The application-specific Flight Name")
 	private String fromdate;
@@ -31,6 +41,8 @@ public class UpdateTheater {
 
 	@NotNull(message="Please Fill Price Economy and Business")
 	private Price price;
+
+
 
 	public int getTheaterid() {
 		return theaterid;
@@ -72,6 +84,20 @@ public class UpdateTheater {
 		this.price = price;
 	}
 
+	public int getNumberofeconomicseat() {
+		return numberofeconomicseat;
+	}
 
+	public void setNumberofeconomicseat(int numberofeconomicseat) {
+		this.numberofeconomicseat = numberofeconomicseat;
+	}
+
+	public int getNumberofbusinessseat() {
+		return numberofbusinessseat;
+	}
+
+	public void setNumberofbusinessseat(int numberofbusinessseat) {
+		this.numberofbusinessseat = numberofbusinessseat;
+	}
 
 }

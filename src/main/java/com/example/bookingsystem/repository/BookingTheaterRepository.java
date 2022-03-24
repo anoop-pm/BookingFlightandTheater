@@ -31,8 +31,9 @@ public interface BookingTheaterRepository extends JpaRepository<TheaterBooking, 
 	@Query(value = "select time from theater_booking u where u.bookingid =:bookTimeid", nativeQuery = true)
 	String getBookedTime(@Param("bookTimeid") int bookTimeid);
 
-	@Query(value = "select count(bookingid) from theater_booking u where u.bookingid=:searchBookingID ", nativeQuery = true)
-	Integer searchId(@Param("searchBookingID") int searchBookingID);
+	@Query(value = "select count(bookingid) from theater_booking u where u.bookingid=:searchBookingByID ", nativeQuery = true)
+	Integer searchId(@Param("searchBookingByID") int searchBookingByID);
+
 
 	@Query(value = "select count(userid) from theater_booking u where u.bookingid=:searchBookingUserID ", nativeQuery = true)
 	Integer searchUserId(@Param("searchBookingUserID") int searchBookingUserID);
@@ -44,8 +45,13 @@ public interface BookingTheaterRepository extends JpaRepository<TheaterBooking, 
 	@Query(value = "select paymentoption from theater_booking u where u.bookingid =:bookstatusid", nativeQuery = true)
 	String getPaymentStatus(@Param("bookstatusid") int bookstatusid);
 
+	@Query(value = "select userid from theater_booking u where u.theaterid =:theaterById", nativeQuery = true)
+	List<Integer> getUserIdForReport(@Param("theaterById") int theaterById);
+
 	@Query(value = "select * from theater_booking u where u.bookingid =:searchBybookid", nativeQuery = true)
 	List<TheaterBooking> theaterBookingDetails(@Param("searchBybookid") int searchBybookid);
+
+
 
 	@Transactional
 	@Modifying
@@ -62,6 +68,12 @@ public interface BookingTheaterRepository extends JpaRepository<TheaterBooking, 
 	@Modifying
 	@Query("UPDATE TheaterBooking SET cardnumber = :card WHERE  bookingid = :bookingcardID")
 	Integer updateCard(String card, int bookingcardID);
+
+
+	@Transactional
+	@Modifying
+	@Query("DELETE FROM TheaterBooking WHERE theaterid = :deletebytheaterid")
+	Integer deleteTheaterBooking(int deletebytheaterid);
 
 
 

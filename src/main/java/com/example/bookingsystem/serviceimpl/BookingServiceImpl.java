@@ -6,7 +6,6 @@ import java.text.ParseException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -14,10 +13,10 @@ import java.util.stream.Collectors;
 
 import javax.sql.DataSource;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
@@ -95,9 +94,8 @@ public class BookingServiceImpl implements BookingService {
 	@Autowired
 	private DataSource dataSource;
 
-	BookingConstant constant = new BookingConstant();
-
-	BookingUtilities utilities = new BookingUtilities();
+	@Autowired
+	private BookingUtilities utilities;
 
 	FlightObject flightResponce = new FlightObject();
 
@@ -106,6 +104,8 @@ public class BookingServiceImpl implements BookingService {
 	TheaterObject theaterObject = new TheaterObject();
 
 	TheaterBookingObject theaterBookingObject = new TheaterBookingObject();
+
+	private static final Logger logger = LogManager.getLogger(BookingServiceImpl.class);
 
 	/**
 	 * Register A User for store user details identifying email and phone so that
@@ -129,22 +129,25 @@ public class BookingServiceImpl implements BookingService {
 		String email = null;
 		String phone = null;
 		int maxid = 0;
+		int userid;
+
+		boolean dateValid;
 		try {
 			email = userRepository.getEmailAddress(user.getEmail());
 			phone = userRepository.getPhoneNumber(user.getPhonenumber());
 			maxid = userRepository.maxuserid();
-			boolean connection = dataSource.getConnection().isValid(1000);
-			System.out.println(email + phone + maxid + "connection " + connection);
+
 		} catch (Exception e) {
-			// logger
+			logger.error(" Oops! Emaild and password =NULL We can create new User ");
 		}
 
-		int userid = utilities.randomNumber(4, maxid);
+		userid = utilities.randomNumber(4, maxid);
 		System.out.println(utilities.validateJavaDate(user.getDateofbirth()) + email + phone + userid);
-		boolean dateValid = utilities.validateJavaDate(user.getDateofbirth());
+		dateValid = utilities.validateJavaDate(user.getDateofbirth());
 		if (dateValid == false) {
-			response.setStatus(constant.StatusError);
-			response.setMessage(constant.DATENOTVALID);
+			response.setStatus(BookingConstant.StatusError);
+			response.setMessage(BookingConstant.DATENOTVALID);
+			logger.warn(" Date Not Valid ");
 			return response;
 		}
 		if (utilities.emailPhoneValid(email, phone) == true) { // Check phone and Email is Unique
@@ -155,22 +158,14 @@ public class BookingServiceImpl implements BookingService {
 			user.setPhonenumber(user.getPhonenumber());
 			user.setEmail(user.getEmail());
 			user.setUserid(userid);
-			System.out.println("connection Check");
-			boolean connection = dataSource.getConnection().isValid(1000);
 
-			System.out.println("connection " + connection);
-			if (connection == true) {
-				userRepository.save(user);
-				response.setStatus(constant.StatusOk);
-				response.setMessage(constant.UserCreated + userid);
-			} else {
-				response.setStatus(constant.StatusError);
-				response.setMessage(constant.ConnectionError);
+			userRepository.save(user);
+			response.setStatus(BookingConstant.StatusOk);
+			response.setMessage(BookingConstant.UserCreated + userid);
 
-			}
 		} else {
-			response.setStatus(constant.StatusError);
-			response.setMessage(constant.EmailPhoneExist);
+			response.setStatus(BookingConstant.StatusError);
+			response.setMessage(BookingConstant.EmailPhoneExist);
 		}
 		return response;
 	}
@@ -205,23 +200,29 @@ public class BookingServiceImpl implements BookingService {
 		int businessSeat = 0;
 		int economicSeat = 0;
 		String flightName = null;
-
+		int newFlightId;
+		List<Integer> businessList = new ArrayList<>();
+		List<Integer> economicList = new ArrayList<>();
+		Map<String, List<Integer>> updatedSeats = new HashMap<String, List<Integer>>();
+		if(utilities.isJSONValid(flightDetails.getPrice())==false)
+		{
+			response.setStatus(404);
+			response.setMessage("Plese Enter Valid Price in json format");
+			return response;
+		}
 		try {
 			maxFlightId = flightRepository.maxFlightId();
 			flightName = flightRepository.getFlightName(flightDetails.getFlightname());
 		} catch (Exception e) {
 			// Logger
+			logger.error(" Flight name is Null ");
 		}
-		int newFlightId = utilities.randomNumber(5, maxFlightId);
-		System.out.println(maxFlightId + "value=" + newFlightId);
+		newFlightId = utilities.randomNumber(5, maxFlightId);
+
 		if (flightName == null) {
 			flightDetails.setFlightname(flightDetails.getFlightname());
 			flightDetails.setBusinessclassseats(flightDetails.getBusinessclassseats());
 			flightDetails.setEconomyclassseats(flightDetails.getEconomyclassseats());
-
-			List<Integer> businessList = new ArrayList<>();
-			List<Integer> economicList = new ArrayList<>();
-			Map<String, List<Integer>> dict = new HashMap<String, List<Integer>>();
 			businessSeat = flightDetails.getBusinessclassseats();
 			economicSeat = flightDetails.getEconomyclassseats();
 			for (int i = 1; i < businessSeat + 1; i++) {
@@ -230,10 +231,10 @@ public class BookingServiceImpl implements BookingService {
 			for (int i = 1; i < economicSeat + 1; i++) {
 				economicList.add(i);
 			}
-			dict.put(constant.Business, businessList);
-			dict.put(constant.Economic, economicList);
-			JSONObject json = new JSONObject(dict);
-			flightDetails.setSeats(json.toString());
+			updatedSeats.put(BookingConstant.Business, businessList);
+			updatedSeats.put(BookingConstant.Economic, economicList);
+			JSONObject jsonUpdateSeat = new JSONObject(updatedSeats);
+			flightDetails.setSeats(jsonUpdateSeat.toString());
 			flightDetails.setDates(flightDetails.getDates());
 			flightDetails.setDispaturetimes(flightDetails.getDispaturetimes());
 			flightDetails.setDuration(flightDetails.getDuration());
@@ -245,10 +246,10 @@ public class BookingServiceImpl implements BookingService {
 
 			CancelationRules rules = new CancelationRules();
 			Map<String, Integer> ruleMap = new HashMap<String, Integer>();
-			ruleMap.put(constant.CancelWithin4, 100);
-			ruleMap.put(constant.Before1hr, 40);
-			ruleMap.put(constant.CancelationCharge, 4);
-			ruleMap.put(constant.Offers, 0);
+			ruleMap.put(BookingConstant.CancelWithin4, 100);
+			ruleMap.put(BookingConstant.Before1hr, 40);
+			ruleMap.put(BookingConstant.CancelationCharge, 4);
+			ruleMap.put(BookingConstant.Offers, 0);
 			JSONObject ruleJson = new JSONObject(ruleMap);
 			String defaultRules = ruleJson.toString();
 			rules.setBookingsystem("Flight");
@@ -256,19 +257,15 @@ public class BookingServiceImpl implements BookingService {
 			Instant now = Instant.now();
 			rules.setTime(now.toString());
 			rules.setRules(defaultRules);
-			boolean connection = dataSource.getConnection().isValid(1000);
-			if (connection == true) {
-				flightRepository.save(flightDetails);
-				cancelationRuleRepository.save(rules);
-				response.setStatus(200);
-				response.setMessage(constant.FlightDetails + newFlightId);
-			} else {
-				response.setStatus(404);
-				response.setMessage(constant.ConnectionError);
-			}
+
+			flightRepository.save(flightDetails);
+			cancelationRuleRepository.save(rules);
+			response.setStatus(200);
+			response.setMessage(BookingConstant.FlightDetails + newFlightId);
+
 		} else {
 			response.setStatus(404);
-			response.setMessage(constant.FlightName);
+			response.setMessage(BookingConstant.FlightName);
 		}
 		return response;
 	}
@@ -292,39 +289,39 @@ public class BookingServiceImpl implements BookingService {
 	@Override
 	public FlightObject findFlights(SearchFlight flightDetails) throws SQLException {
 		// TODO Auto-generated method stub
-
-		boolean dateValid = utilities.validateJavaDate(flightDetails.getDates());
+		List<FlightDetails> flightDetailsList = null;
+		String flightList = null;
+		String dayWeekText = null;
+		int noOfSeat = Integer.parseInt(flightDetails.getSeats());
+		boolean dateValid = utilities.validateJavaDate(flightDetails.getDates()); // VALIDDATE
 		if (dateValid == false) {
 			flightResponce.setStatus(400);
-			flightResponce.setMessage("PLease Fill Valid Date Format like DD/MM/YEAR");
+			flightResponce.setMessage(" PLease Fill Valid Date Format like DD/MM/YEAR ");
 			return flightResponce;
 		}
-		Date date = new Date();
-		String dayWeekText = null;
+
 		try {
 			dayWeekText = utilities.dateDay(flightDetails.getDates());
 		} catch (Exception e1) {
 			// TODO Auto-generated catch block
 			e1.printStackTrace();
 		}
-		System.out.println("day" + dayWeekText + "date" + date);
-		List<FlightDetails> flightDetailsList = null;
-		String flightList = null;
-		int noOfSeat = Integer.parseInt(flightDetails.getSeats());
+
 		try {
 			flightDetailsList = flightRepository.getFlight(dayWeekText, flightDetails.getDestination(),
 					flightDetails.getSource(), noOfSeat);
 			flightList = flightDetailsList.toString();
 		} catch (Exception e) {
 			// logger
+			logger.error(" Flight List not Found");
 		}
 		if (flightList != null) {
 			flightResponce.setStatus(200);
-			flightResponce.setMessage(constant.FlightDetailsList);
+			flightResponce.setMessage(BookingConstant.FlightDetailsList);
 			flightResponce.setFlightList(flightDetailsList);
 		} else {
 			flightResponce.setStatus(400);
-			flightResponce.setMessage(constant.FlightNotAvailable);
+			flightResponce.setMessage(BookingConstant.FlightNotAvailable);
 		}
 		return flightResponce;
 	}
@@ -364,8 +361,8 @@ public class BookingServiceImpl implements BookingService {
 
 		String seats = bookTheater.getSeats();
 		JSONObject seatJson = new JSONObject(seats);
-		String economicSeat = seatJson.get(constant.Economic).toString();
-		String businessSeat = seatJson.get(constant.Business).toString();
+		String economicSeat = seatJson.get(BookingConstant.Economic).toString();
+		String businessSeat = seatJson.get(BookingConstant.Business).toString();
 		List<String> selectEconomicList = utilities.createList(economicSeat);
 		List<String> selectBusinessList = utilities.createList(businessSeat);
 		int theaterID = 0;
@@ -376,20 +373,6 @@ public class BookingServiceImpl implements BookingService {
 		String availableSeat = null;
 		String seatPrice = null;
 		String location = null;
-		try {
-			theaterID = theatreRepository.getTheatreid(bookTheater.getTheaterid());
-			systemId = cancelationRuleRepository.getSystemId(bookTheater.getTheaterid());
-			cancelRule = cancelationRuleRepository.getrule(systemId);
-			seatPrice = theatreRepository.getPrice(theaterID);
-			availableSeat = theatreRepository.getSeats(theaterID);
-			userId = userRepository.getUserIds(bookTheater.getUserid());
-			maxBookId = bookingTheaterRepository.maxBookId();
-			location = theatreRepository.getLocation(theaterID);
-
-		} catch (Exception e) {
-
-		}
-
 		boolean seatSearchEconomic = false;
 		boolean seatSearchBusiness = false;
 		List<String> newEconomicList = null;
@@ -399,24 +382,50 @@ public class BookingServiceImpl implements BookingService {
 		int sizeofSeats = 0;
 		float afteroffers = 0;
 		int bookingid = 0;
+		int business;
+		int economic;
+		int offers ;
+		int economicPrice;
+		int businessPrice;
+
+		try {
+			userId = userRepository.getUserIds(bookTheater.getUserid());
+			theaterID = theatreRepository.getTheatreid(bookTheater.getTheaterid());
+			systemId = cancelationRuleRepository.getSystemId(bookTheater.getTheaterid());
+			cancelRule = cancelationRuleRepository.getrule(systemId);
+			seatPrice = theatreRepository.getPrice(theaterID);
+			availableSeat = theatreRepository.getSeats(theaterID);
+			maxBookId = bookingTheaterRepository.maxBookId();
+			location = theatreRepository.getLocation(theaterID);
+
+		} catch (Exception e) {
+			logger.error(" Check some Null Exception Occoured ");
+		}
+
+		if(userId == 0) {
+			System.out.println("Error");
+			response.setStatus(404);
+			response.setMessage(BookingConstant.THEATERIDNOTVALID);
+			return response;
+		}
 
 		if (utilities.validateJavaDate(bookTheater.getDate()) == false) {
 			response.setStatus(404);
-			response.setMessage(constant.DATENOTVALID);
+			response.setMessage(BookingConstant.DATENOTVALID);
 			return response;
 		}
 
 		if (theaterID == 0) {
 			System.out.println("Error");
 			response.setStatus(404);
-			response.setMessage(constant.THEATERIDNOTVALID);
+			response.setMessage(BookingConstant.THEATERIDNOTVALID);
 			return response;
 		}
 
 		bookingid = utilities.randomNumber(5, maxBookId);
 		JSONObject availableSeatJson = new JSONObject(availableSeat);
-		String economicSeats = availableSeatJson.get(constant.Economic).toString();
-		String businessSeats = availableSeatJson.get(constant.Business).toString();
+		String economicSeats = availableSeatJson.get(BookingConstant.Economic).toString();
+		String businessSeats = availableSeatJson.get(BookingConstant.Business).toString();
 		newEconomicList = utilities.createList(economicSeats);
 		newBusinessList = utilities.createList(businessSeats);
 		seatSearchEconomic = utilities.search(newEconomicList, selectEconomicList);
@@ -431,15 +440,14 @@ public class BookingServiceImpl implements BookingService {
 		}
 		JSONObject ruleJson = new JSONObject(cancelRule);
 		JSONObject price = new JSONObject(seatPrice);
-		int business = (int) price.get(constant.Business);
-		int economic = (int) price.get(constant.Economic);
-		int offers = (int) ruleJson.get(constant.Offers);
-		int economicPrice;
-		int businessPrice;
+		business = (int) price.get(BookingConstant.Business);
+		economic = (int) price.get(BookingConstant.Economic);
+		offers = (int) ruleJson.get(BookingConstant.Offers);
 
-		if (seatSearchEconomic == false || seatSearchBusiness == false) {
-			System.out.println("Size is" + "Save here");
-		}
+
+		// if (seatSearchEconomic == false || seatSearchBusiness == false) {
+		// System.out.println("Size is" + "Save here");
+		// }
 
 		if (selectEconomicList.get(0) != "") {
 			economicPrice = selectEconomicList.size() * economic;
@@ -488,8 +496,8 @@ public class BookingServiceImpl implements BookingService {
 		Map<String, List<Integer>> dict = new HashMap<String, List<Integer>>();
 		List<Integer> integerList = newEconomicList.stream().map(Integer::valueOf).collect(Collectors.toList());
 		List<Integer> integerBList = newBusinessList.stream().map(Integer::valueOf).collect(Collectors.toList());
-		dict.put(constant.Business, integerBList);
-		dict.put(constant.Economic, integerList);
+		dict.put(BookingConstant.Business, integerBList);
+		dict.put(BookingConstant.Economic, integerList);
 		JSONObject newSeatJson = new JSONObject(dict);
 		// update seat
 		bookingTheaterRepository.save(bookTheater);
@@ -502,7 +510,8 @@ public class BookingServiceImpl implements BookingService {
 		theatreRepository.updateEconomicSeat(newEconomicList.size(), theaterID);
 
 		response.setStatus(202);
-		response.setMessage(constant.MOVIETICKETBOOKED + bookingid + "Booked Seats Are" + seatJson);
+		response.setMessage(BookingConstant.MOVIETICKETBOOKED + bookingid +  " . Total amount is "+afteroffers+" . Booked Seats Are " + seatJson
+				+ BookingConstant.CANCELLATIONRULE);
 		return response;
 	}
 
@@ -537,13 +546,26 @@ public class BookingServiceImpl implements BookingService {
 
 		String seats = bookFlight.getSeats();
 		JSONObject seatJson = new JSONObject(seats);
-		String economicSeat = seatJson.get(constant.Economic).toString();
-		String businessSeat = seatJson.get(constant.Business).toString();
+		String economicSeat = seatJson.get(BookingConstant.Economic).toString();
+		String businessSeat = seatJson.get(BookingConstant.Business).toString();
 		List<String> selectEconomicList = utilities.createList(economicSeat);
 		List<String> selectBusinessList = utilities.createList(businessSeat);
 		int bookingid = 0;
 		int maxBookId = 0;
 		int userId = 0;
+		boolean seatSearchEconomic = false;
+		boolean seatSearchBusiness = false;
+		List<String> newEconomicList = null;
+		List<String> newBusinessList = null;
+		int sizeEco = 0;
+		int sizeBis = 0;
+		int sizeofSeats = 0;
+		float afteroffers = 0;
+		int business ;
+		int economic;
+		int offers;
+		int economicPrice;
+		int businessPrice;
 		try {
 			flightId = flightRepository.getFlightId(bookFlight.getFlightid());
 			systemId = cancelationRuleRepository.getSystemId(bookFlight.getFlightid());
@@ -554,22 +576,14 @@ public class BookingServiceImpl implements BookingService {
 			maxBookId = bookingFlight.maxBookId();
 		} catch (Exception e) {
 			// logger
+			logger.error(" Check some Null Exception Occoured ");
 		}
-
-		boolean seatSearchEconomic = false;
-		boolean seatSearchBusiness = false;
-		List<String> newEconomicList = null;
-		List<String> newBusinessList = null;
-		int sizeEco = 0;
-		int sizeBis = 0;
-		int sizeofSeats = 0;
-		float afteroffers = 0;
 		if (flightId != 0 && systemId != 0) {
-			System.out.println(userId + "userid" + bookFlight.getUserid() + flightId + "ss" + systemId);
+
 			bookingid = utilities.randomNumber(5, maxBookId);
 			JSONObject availableSeatJson = new JSONObject(availableSeat);
-			String economicSeats = availableSeatJson.get(constant.Economic).toString();
-			String businessSeats = availableSeatJson.get(constant.Business).toString();
+			String economicSeats = availableSeatJson.get(BookingConstant.Economic).toString();
+			String businessSeats = availableSeatJson.get(BookingConstant.Business).toString();
 			newEconomicList = utilities.createList(economicSeats);
 			newBusinessList = utilities.createList(businessSeats);
 			seatSearchEconomic = utilities.search(newEconomicList, selectEconomicList);
@@ -584,11 +598,10 @@ public class BookingServiceImpl implements BookingService {
 
 			JSONObject ruleJson = new JSONObject(cancelRule);
 			JSONObject price = new JSONObject(seatPrice);
-			int business = (int) price.get(constant.Business);
-			int economic = (int) price.get(constant.Economic);
-			int offers = (int) ruleJson.get(constant.Offers);
-			int economicPrice;
-			int businessPrice;
+			business = (int) price.get(BookingConstant.Business);
+			economic = (int) price.get(BookingConstant.Economic);
+			offers = (int) ruleJson.get(BookingConstant.Offers);
+
 
 			if (selectEconomicList.get(0) != "") {
 				economicPrice = selectEconomicList.size() * economic;
@@ -623,113 +636,110 @@ public class BookingServiceImpl implements BookingService {
 		} else {
 			System.out.println("Error");
 			response.setStatus(404);
-			response.setMessage(constant.NOTMATCHEDFLIGHTID);
+			response.setMessage(BookingConstant.NOTMATCHEDFLIGHTID);
 			return response;
 		}
 
 		if (flightId != 0 && systemId != 0 && userId != 0 && seatSearchEconomic == true && seatSearchBusiness == true
 				&& bookFlight.getPassengers().size() == sizeofSeats) {
-			boolean connection = dataSource.getConnection().isValid(1000);
-			if (connection == true) {
 
-				Map<String, List<Integer>> dict = new HashMap<String, List<Integer>>();
-				List<Integer> integerList = newEconomicList.stream().map(Integer::valueOf).collect(Collectors.toList());
-				List<Integer> integerBList = newBusinessList.stream().map(Integer::valueOf)
-						.collect(Collectors.toList());
-				dict.put(constant.Business, integerBList);
-				dict.put(constant.Economic, integerList);
-				JSONObject newSeatJson = new JSONObject(dict);
-				flightRepository.updateSeat(newSeatJson.toString(), flightId);
-				bookFlight.setBookingid(bookingid);
-				bookFlight.setUserid(userId);
-				bookFlight.setAmount((int) afteroffers);
-				String flightDate = flightRepository.getDate(flightId);
-				String destination = flightRepository.getDestination(flightId);
-				String source = flightRepository.getSource(flightId);
-				String time = flightRepository.getTime(flightId);
-				String flightName = flightRepository.getFlightNameByid(flightId);
-				bookFlight.setDate(flightDate);
-				bookFlight.setDestination(destination);
-				bookFlight.setSource(source);
-				bookFlight.setFlightname(flightName);
-				bookFlight.setTime(time);
-				bookFlight.setSeats(bookFlight.getSeats());
-				bookFlight.setFlightid(flightId);
-				bookFlight.setPaymentstatus("notpayed");
-				bookFlight.setPaymentoption("notpayed");
-				bookFlight.setMail(bookFlight.getMail());
-				Instant now = Instant.now();
-				bookFlight.setBookedtime(now.toString());
-				int numberEconomicSeat = flightRepository.getNumberEconomicSeat(flightId);
-				int numberBusinessSeat = flightRepository.getNumberBusinessSeat(flightId);
-				int newNumberEconomicSeat = numberEconomicSeat - selectEconomicList.size();
-				int newNumberBusinessSeat = numberBusinessSeat - selectBusinessList.size();
-				flightRepository.updateEconomicSeat(newNumberEconomicSeat, flightId);
-				flightRepository.updateBusinessSeat(newNumberBusinessSeat, flightId);
-				bookingFlight.save(bookFlight);
-				int newbookId = 0;
+			Map<String, List<Integer>> dict = new HashMap<String, List<Integer>>();
+			List<Integer> integerList = newEconomicList.stream().map(Integer::valueOf).collect(Collectors.toList());
+			List<Integer> integerBList = newBusinessList.stream().map(Integer::valueOf)
+					.collect(Collectors.toList());
+			dict.put(BookingConstant.Business, integerBList);
+			dict.put(BookingConstant.Economic, integerList);
+			JSONObject newSeatJson = new JSONObject(dict);
+			flightRepository.updateSeat(newSeatJson.toString(), flightId);
+			bookFlight.setBookingid(bookingid);
+			bookFlight.setUserid(userId);
+			bookFlight.setAmount((int) afteroffers);
+			String flightDate = flightRepository.getDate(flightId);
+			String destination = flightRepository.getDestination(flightId);
+			String source = flightRepository.getSource(flightId);
+			String time = flightRepository.getTime(flightId);
+			String flightName = flightRepository.getFlightNameByid(flightId);
+			bookFlight.setDate(flightDate);
+			bookFlight.setDestination(destination);
+			bookFlight.setSource(source);
+			bookFlight.setFlightname(flightName);
+			bookFlight.setTime(time);
+			bookFlight.setSeats(bookFlight.getSeats());
+			bookFlight.setFlightid(flightId);
+			bookFlight.setPaymentstatus("notpayed"); // pending
+			bookFlight.setPaymentoption("notpayed");
+			bookFlight.setMail(bookFlight.getMail());
+			Instant now = Instant.now();
+			bookFlight.setBookedtime(now.toString());
+			int numberEconomicSeat = flightRepository.getNumberEconomicSeat(flightId);
+			int numberBusinessSeat = flightRepository.getNumberBusinessSeat(flightId);
+			int newNumberEconomicSeat = numberEconomicSeat - selectEconomicList.size();
+			int newNumberBusinessSeat = numberBusinessSeat - selectBusinessList.size();
+			flightRepository.updateEconomicSeat(newNumberEconomicSeat, flightId);
+			flightRepository.updateBusinessSeat(newNumberBusinessSeat, flightId);
+			bookingFlight.save(bookFlight);
+			int newbookId = 0;
 
-				try {
-					Thread.sleep(2000);
-					newbookId = bookingFlight.getBookMapId(bookingid);
+			try {
+				Thread.sleep(2000);
+				newbookId = bookingFlight.getBookMapId(bookingid);
 
-				} catch (InterruptedException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-				List<Passenger> passengerList = new ArrayList<Passenger>();
-				passengerList = passengerRepository.getpassenger(newbookId);
-				Map<String, Passenger> passengerdict = new HashMap<String, Passenger>();
-				for (int i = 0; i < passengerList.size(); i++) {
-					Passenger name = passengerList.get(i);
-					passengerdict.put("passenger" + i, name);
-				}
-
-				String passengerJson = null;
-				try {
-					passengerJson = new ObjectMapper().writeValueAsString(passengerdict);
-				} catch (JsonProcessingException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-
-				JSONObject newSeatJsonPass = new JSONObject(passengerJson);
-
-				System.out.println(newSeatJsonPass.toString());
-				System.out.println(
-						"Available Economic Seats " + newEconomicList + "Available Business Seats " + newBusinessList
-						+ "id" + newbookId + "Passenger" + passengerJson + bookFlight.getPassengers().size()
-						+ "Available Seat " + newNumberEconomicSeat + " " + newNumberBusinessSeat);
-				response.setStatus(200);
-
-				String emailUserId = userRepository.getEmailId(userId);
-
-				String mailContent = " Your Booking ID IS " + bookingid + BookingConstant.PAYABLEAMOUNT + afteroffers
-						+ BookingConstant.PassengerDetails + newSeatJsonPass.toString() + "Your Seats"
-						+ selectEconomicList + selectBusinessList + BookingConstant.CONFIRMBILL;
-				sendEmail(mailContent, emailUserId);
-				sendEmail(mailContent, bookFlight.getMail());
-				response.setMessage(mailContent);
-			} else {
-				response.setStatus(404);
-				response.setMessage(constant.ConnectionError);
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				logger.error(" Check some Null Exception Occoured in Booking ");
+				e.printStackTrace();
 			}
+			List<Passenger> passengerList = new ArrayList<Passenger>();
+			passengerList = passengerRepository.getpassenger(newbookId);
+			Map<String, Passenger> passengerdict = new HashMap<String, Passenger>();
+			for (int i = 0; i < passengerList.size(); i++) {
+				Passenger name = passengerList.get(i);
+				passengerdict.put("passenger" + i, name);
+			}
+
+			String passengerJson = null;
+			try {
+				passengerJson = new ObjectMapper().writeValueAsString(passengerdict);
+			} catch (JsonProcessingException e) {
+				// TODO Auto-generated catch block
+				logger.error(" Check some Null Exception Occoured  json exception");
+				e.printStackTrace();
+			}
+
+			JSONObject newSeatJsonPass = new JSONObject(passengerJson);
+
+			//			System.out.println(newSeatJsonPass.toString());
+			//			System.out.println(
+			//					"Available Economic Seats " + newEconomicList + "Available Business Seats " + newBusinessList
+			//					+ "id" + newbookId + "Passenger" + passengerJson + bookFlight.getPassengers().size()
+			//					+ "Available Seat " + newNumberEconomicSeat + " " + newNumberBusinessSeat);
+			//			response.setStatus(200);
+
+			String emailUserId = userRepository.getEmailId(userId);
+
+			String mailContent = " Your Booking ID IS " + bookingid +" . "+ BookingConstant.PAYABLEAMOUNT + afteroffers
+					+ BookingConstant.PassengerDetails + newSeatJsonPass.toString() + "Your Seats"
+					+ selectEconomicList + selectBusinessList + BookingConstant.CONFIRMBILL;
+			sendEmail(mailContent, emailUserId);
+			sendEmail(mailContent, bookFlight.getMail());
+			response.setMessage(mailContent);
+
 		} else if (seatSearchEconomic != true && seatSearchBusiness != true) {
 			response.setStatus(404);
 			response.setMessage("Seat Not Available");
 		} else {
 			response.setStatus(404);
-			response.setMessage(constant.BookUserFlightId);
+			response.setMessage(BookingConstant.BookUserFlightId);
 		}
 		return response;
 	}
 
-	@Override
-	public List<FlightBooking> getAllPassangersCustom(int page) {
-		int size = 3;
-		Pageable pagable = PageRequest.of(page, size);
-		return bookingFlight.findAll(pagable).toList();
-	}
+	// @Override
+	// public List<FlightBooking> getAllPassangersCustom(int page) {
+	// int size = 3;
+	// Pageable pagable = PageRequest.of(page, size);
+	// return bookingFlight.findAll(pagable).toList();
+	// }
 
 	/**
 	 * Confirm Booking
@@ -759,12 +769,12 @@ public class BookingServiceImpl implements BookingService {
 			userid = bookingFlight.getbookUserId(bookDeails.getBookingid());
 
 		} catch (Exception e) {
-			max = 0;
+			logger.error(" Check some Null Exception Occoured ");
 		}
 		System.out.println(paymentStatus + "paymnetStatus" + bookAmount);
 		if (bookAmount != bookDeails.getAmount()) {
 			response.setStatus(404);
-			response.setMessage(constant.AmountNotMatch);
+			response.setMessage(BookingConstant.AmountNotMatch);
 			return response;
 		}
 		if (paymentStatus.equals("payed")) {
@@ -791,10 +801,10 @@ public class BookingServiceImpl implements BookingService {
 			bookDeails.setBookingsystem("Flight");
 			transactionRepository.save(bookDeails);
 			response.setStatus(200);
-			response.setMessage(constant.PAYMENTSUCCESS);
+			response.setMessage(BookingConstant.PAYMENTSUCCESS);
 		} else {
 			response.setStatus(404);
-			response.setMessage(constant.PAYMENTNOTSUCCESS);
+			response.setMessage(BookingConstant.PAYMENTNOTSUCCESS);
 		}
 		return response;
 	}
@@ -838,8 +848,8 @@ public class BookingServiceImpl implements BookingService {
 
 		String seats = bookDeails.getSeats();
 		JSONObject seatJson = new JSONObject(seats);
-		String economicSeat = seatJson.get(constant.Economic).toString();
-		String businessSeat = seatJson.get(constant.Business).toString();
+		String economicSeat = seatJson.get(BookingConstant.Economic).toString();
+		String businessSeat = seatJson.get(BookingConstant.Business).toString();
 		List<String> selectEconomicList = utilities.createList(economicSeat);
 		List<String> selectBusinessList = utilities.createList(businessSeat);
 		System.out.println(selectEconomicList + "" + selectBusinessList);
@@ -850,9 +860,21 @@ public class BookingServiceImpl implements BookingService {
 		String bookedTime = null;
 		String cardNumber = null;
 		try {
+			userId = userRepository.getUserIds(bookDeails.getUserid());
+		}
+		catch(Exception e)
+		{
+
+		}
+		if(userId==0) {
+			response.setStatus(404);
+			response.setMessage(BookingConstant.BookUserFlightId);
+			return response;
+		}
+
+		try {
 			flightId = bookingFlight.searchFlightId(bookDeails.getBookingid());
 			systemId = cancelationRuleRepository.getSystemId(flightId);
-			userId = userRepository.getUserIds(bookDeails.getUserid());
 			cancelRule = cancelationRuleRepository.getrule(flightId);
 			seatPrice = flightRepository.getPrice(flightId);
 			availableSeat = flightRepository.getSeats(flightId);
@@ -862,19 +884,17 @@ public class BookingServiceImpl implements BookingService {
 
 		} catch (Exception e) {
 			// logger
-
-			System.out.println("error happened in try" + flightId + "s" + systemId + "u" + userId + cancelRule
-					+ seatPrice + availableSeat + availableBookSeat + bookedTime);
+			logger.error(" Check some Null Exception Occoured ");
 		}
 		if (flightId == 0) {
 
 			response.setStatus(404);
-			response.setMessage(constant.NOTMATCHBOOKING);
+			response.setMessage(BookingConstant.NOTMATCHBOOKING);
 			return response;
 		}
 		JSONObject availableSeatJson = new JSONObject(availableSeat);
-		String economicSeats = availableSeatJson.get(constant.Economic).toString();
-		String businessSeats = availableSeatJson.get(constant.Business).toString();
+		String economicSeats = availableSeatJson.get(BookingConstant.Economic).toString();
+		String businessSeats = availableSeatJson.get(BookingConstant.Business).toString();
 		List<String> newEconomicList = utilities.createList(economicSeats);
 		List<String> newBusinessList = utilities.createList(businessSeats);
 		System.out.println("values" + flightId + "s" + systemId + "u" + userId + cancelRule + seatPrice + availableSeat
@@ -900,8 +920,8 @@ public class BookingServiceImpl implements BookingService {
 		flightRepository.updateBusinessSeat(newBusinessList.size(), flightId);
 		System.out.println(newEconomicList + "added" + newBusinessList);
 		JSONObject availableBookSeatJson = new JSONObject(availableBookSeat);
-		String economicBookSeats = availableBookSeatJson.get(constant.Economic).toString();
-		String businessBookSeats = availableBookSeatJson.get(constant.Business).toString();
+		String economicBookSeats = availableBookSeatJson.get(BookingConstant.Economic).toString();
+		String businessBookSeats = availableBookSeatJson.get(BookingConstant.Business).toString();
 		List<String> newEconomicBookList = utilities.createList(economicBookSeats);
 		List<String> newBusinessBookList = utilities.createList(businessBookSeats);
 		boolean seatSearchBookEconomic = utilities.search(newEconomicBookList, selectEconomicList);
@@ -930,8 +950,8 @@ public class BookingServiceImpl implements BookingService {
 			Map<String, List<Integer>> dict = new HashMap<String, List<Integer>>();
 			List<Integer> integerList = newEconomicList.stream().map(Integer::valueOf).collect(Collectors.toList());
 			List<Integer> integerBList = newBusinessList.stream().map(Integer::valueOf).collect(Collectors.toList());
-			dict.put(constant.Business, integerBList);
-			dict.put(constant.Economic, integerList);
+			dict.put(BookingConstant.Business, integerBList);
+			dict.put(BookingConstant.Economic, integerList);
 			JSONObject newSeatJson = new JSONObject(dict);
 			flightRepository.updateSeat(newSeatJson.toString(), flightId);
 
@@ -940,8 +960,8 @@ public class BookingServiceImpl implements BookingService {
 					.collect(Collectors.toList());
 			List<Integer> integerBListBook = newBusinessBookList.stream().map(Integer::valueOf)
 					.collect(Collectors.toList());
-			dictBook.put(constant.Business, integerBListBook);
-			dictBook.put(constant.Economic, integerListBook);
+			dictBook.put(BookingConstant.Business, integerBListBook);
+			dictBook.put(BookingConstant.Economic, integerListBook);
 			JSONObject newSeatBookJson = new JSONObject(dictBook);
 			bookingFlight.updateSeat(newSeatBookJson.toString(), bookDeails.getBookingid());
 			Instant instant1 = Instant.parse(bookedTime);
@@ -950,12 +970,12 @@ public class BookingServiceImpl implements BookingService {
 			// Cancel Amount
 			JSONObject ruleJson = new JSONObject(cancelRule);
 			JSONObject price = new JSONObject(seatPrice);
-			int business = (int) price.get(constant.Business);
-			int economic = (int) price.get(constant.Economic);
-			int offers = (int) ruleJson.get(constant.Offers);
-			int cancelfour = (int) ruleJson.get(constant.CancelWithin4);
-			int cancelationCharge = (int) ruleJson.get(constant.CancelationCharge);
-			int aftercancel = (int) ruleJson.get(constant.Before1hr);
+			int business = (int) price.get(BookingConstant.Business);
+			int economic = (int) price.get(BookingConstant.Economic);
+			int offers = (int) ruleJson.get(BookingConstant.Offers);
+			int cancelfour = (int) ruleJson.get(BookingConstant.CancelWithin4);
+			int cancelationCharge = (int) ruleJson.get(BookingConstant.CancelationCharge);
+			int aftercancel = (int) ruleJson.get(BookingConstant.Before1hr);
 			int afterAppliedCharge = 0;
 			int economicPrice;
 			int businessPrice;
@@ -976,7 +996,7 @@ public class BookingServiceImpl implements BookingService {
 			transaction.setPaymentoption("Card");
 			transaction.setCardnumber(cardNumber);
 			transaction.setCvv(111);
-			transaction.setValidthrough("11/2030");
+			transaction.setValidthrough("11/2030"); // CHANGE
 			transaction.setUserid(userId);
 			int max = 0;
 			try {
@@ -1003,9 +1023,8 @@ public class BookingServiceImpl implements BookingService {
 
 			String emailUserId = userRepository.getEmailId(userId);
 			afterAppliedCharge = afterAppliedCharge - (afterAppliedCharge * cancelationCharge) / 100;
-			String mailContent = "Cancelation Successful your Canceled Seat is" + seatJson + "Seat Amount" + totalAmount
-					+ "After Cancelation Charges Applied The amount will transerd to your account within 2days amount is"
-					+ afterAppliedCharge;
+			String mailContent = BookingConstant.CANCELSUCESS + seatJson + "Seat Amount" + totalAmount
+					+ BookingConstant.CANCELSUCESSCHARGE + afterAppliedCharge;
 
 			sendEmail(mailContent, emailUserId);
 			transaction.setAmount(afterAppliedCharge);
@@ -1013,7 +1032,7 @@ public class BookingServiceImpl implements BookingService {
 					+ cancelfour + aftercancel + "aaa " + afterAppliedCharge + "bbb " + totalAmount);
 			transactionRepository.save(transaction);
 			response.setStatus(200);
-			response.setMessage(constant.CANCELED + constant.AMOUNT + afterAppliedCharge);
+			response.setMessage(BookingConstant.CANCELED + BookingConstant.AMOUNT + afterAppliedCharge);
 
 		} else {
 			response.setStatus(404);
@@ -1037,19 +1056,33 @@ public class BookingServiceImpl implements BookingService {
 	public ResponseObject deleteFlight(FlightDelete delete) throws SQLException {
 		// TODO Auto-generated method stub
 		int flightId = 0;
+		String reports = null;
 		try {
 			flightId = flightRepository.getFlightId(delete.getFlightid());
 		} catch (Exception e) {
-
+			logger.error(" Check some Null Exception Occoured ");
 		}
 		System.out.println("Flight ID" + flightId);
 		if (flightId != 0) {
+
+			List<Integer> testing = bookingFlight.getUserIdForReport(flightId);
+
+			for (Integer i : testing) {
+
+				// Print all elements of ArrayList
+				String emails = userRepository.getEmailId(i);
+				reports = "Flight ID" + flightId
+						+ " Has not been available today your Booked Amound will send To your given accunt any clarification please contact Airport office . Sorry for Inconveince";
+				sendEmailDeleteStatusFlight(reports, emails);
+
+				System.out.println(emails);
+			}
 			flightRepository.deleteFlight(flightId);
 			response.setStatus(200);
-			response.setMessage(constant.FLIGHTID + delete.getFlightid() + constant.DELETED);
+			response.setMessage(BookingConstant.FLIGHTID + delete.getFlightid() + BookingConstant.DELETED);
 		} else {
 			response.setStatus(404);
-			response.setMessage(constant.NOTMATCHEDFLIGHTID);
+			response.setMessage(BookingConstant.NOTMATCHEDFLIGHTID);
 		}
 		return response;
 
@@ -1080,19 +1113,19 @@ public class BookingServiceImpl implements BookingService {
 			systemId = cancelationRuleRepository.getSystemId(cancelUpdate.getSystemid());
 			bookingSystem = cancelationRuleRepository.getbookSystem(systemId);
 		} catch (Exception e) {
-
+			logger.error(" Check some Null Exception Occoured ");
 		}
 		if (systemId == 0) {
 			response.setStatus(404);
-			response.setMessage(constant.NOTMATCHEDFLIGHTID);
+			response.setMessage(BookingConstant.NOTMATCHEDFLIGHTID);
 			return response;
 		}
 		if (bookingSystem.equals(cancelUpdate.getBooking_system())) {
 			Map<String, Integer> ruleMap = new HashMap<String, Integer>();
-			ruleMap.put(constant.CancelWithin4, cancelUpdate.getWithin4hr());
-			ruleMap.put(constant.Before1hr, cancelUpdate.getAfter4hr());
-			ruleMap.put(constant.CancelationCharge, cancelUpdate.getCancelationcharge());
-			ruleMap.put(constant.Offers, cancelUpdate.getOffers());
+			ruleMap.put(BookingConstant.CancelWithin4, cancelUpdate.getWithin4hr());
+			ruleMap.put(BookingConstant.Before1hr, cancelUpdate.getAfter4hr());
+			ruleMap.put(BookingConstant.CancelationCharge, cancelUpdate.getCancelationcharge());
+			ruleMap.put(BookingConstant.Offers, cancelUpdate.getOffers());
 			JSONObject ruleJson = new JSONObject(ruleMap);
 			String defaultRules = ruleJson.toString();
 			cancelationRuleRepository.updateCancelRule(defaultRules, cancelUpdate.getBooking_system(),
@@ -1102,7 +1135,7 @@ public class BookingServiceImpl implements BookingService {
 			response.setMessage(cancelUpdate.getSystemid() + "Flight rules has been Updated");
 		} else {
 			response.setStatus(404);
-			response.setMessage(constant.SYSTEMNAMEINCURRECT);
+			response.setMessage(BookingConstant.SYSTEMNAMEINCURRECT);
 		}
 		return response;
 	}
@@ -1134,11 +1167,18 @@ public class BookingServiceImpl implements BookingService {
 		int economicSeat = 0;
 		String theatreName = null;
 		//
+		if(utilities.isJSONValid(theatreDetails.getPrice())==false)
+		{
+			response.setStatus(404);
+			response.setMessage("Plese Enter Valid Price in json format");
+			return response;
+		}
 		try {
 			maxTheatreId = theatreRepository.maxFlightId();
 			theatreName = theatreRepository.getTheatreName(theatreDetails.getTheatrename());
 		} catch (Exception e) {
 			// Logger
+			logger.error(" Check some Null Exception Occoured ");
 		}
 		int newTheateId = utilities.randomNumber(5, maxTheatreId);
 		System.out.println(maxTheatreId + "value=" + newTheateId);
@@ -1158,25 +1198,25 @@ public class BookingServiceImpl implements BookingService {
 			for (int i = 1; i < economicSeat + 1; i++) {
 				economicList.add(i);
 			}
-			dict.put(constant.Business, businessList);
-			dict.put(constant.Economic, economicList);
+			dict.put(BookingConstant.Business, businessList);
+			dict.put(BookingConstant.Economic, economicList);
 
 			JSONObject json = new JSONObject(dict);
 			theatreDetails.setSeats(json.toString());
-			theatreDetails.setTodate(theatreDetails.getTodate());
-			theatreDetails.setFromdate(theatreDetails.getFromdate());
+			theatreDetails.setTodate("Not Found");
+			theatreDetails.setFromdate("Not Found");
 			theatreDetails.setTimes(theatreDetails.getTimes());
-			theatreDetails.setMoviename(theatreDetails.getMoviename());
+			theatreDetails.setMoviename("Not Found");
 			theatreDetails.setLocation(theatreDetails.getLocation());
 			JSONObject priceJson = new JSONObject(theatreDetails.getPrice());
 			theatreDetails.setPrice(priceJson.toString());
 			theatreDetails.setTheaterid(newTheateId);
 			CancelationRules rules = new CancelationRules();
 			Map<String, Integer> ruleMap = new HashMap<String, Integer>();
-			ruleMap.put(constant.CancelWithin4, 100);
-			ruleMap.put(constant.Before1hr, 40);
-			ruleMap.put(constant.CancelationCharge, 4);
-			ruleMap.put(constant.Offers, 0);
+			ruleMap.put(BookingConstant.CancelWithin4, 100);
+			ruleMap.put(BookingConstant.Before1hr, 40);
+			ruleMap.put(BookingConstant.CancelationCharge, 4);
+			ruleMap.put(BookingConstant.Offers, 0);
 			JSONObject ruleJson = new JSONObject(ruleMap);
 			String defaultRules = ruleJson.toString();
 			rules.setBookingsystem("Theater");
@@ -1184,19 +1224,15 @@ public class BookingServiceImpl implements BookingService {
 			Instant now = Instant.now();
 			rules.setTime(now.toString());
 			rules.setRules(defaultRules);
-			boolean connection = dataSource.getConnection().isValid(1000);
-			if (connection == true) {
-				theatreRepository.save(theatreDetails);
-				cancelationRuleRepository.save(rules);
-				response.setStatus(200);
-				response.setMessage(constant.MOVIEADDED + newTheateId);
-			} else {
-				response.setStatus(404);
-				response.setMessage(constant.ConnectionError);
-			}
+
+			theatreRepository.save(theatreDetails);
+			cancelationRuleRepository.save(rules);
+			response.setStatus(200);
+			response.setMessage(BookingConstant.MOVIEADDED + newTheateId);
+
 		} else {
 			response.setStatus(404);
-			response.setMessage(constant.AlREADYEXISTTHEATRE);
+			response.setMessage(BookingConstant.AlREADYEXISTTHEATRE);
 		}
 		return response;
 	}
@@ -1226,6 +1262,7 @@ public class BookingServiceImpl implements BookingService {
 			systemId = cancelationRuleRepository.getSystemId(flightId);
 			userId = bookingFlight.searchUserId(bookDeails.getUserid());
 		} catch (Exception e) {
+			logger.error(" Check some Null Exception Occoured ");
 		}
 		BookDetails bookDetail = new BookDetails();
 		if (flightId != 0 && userId != 0) {
@@ -1273,12 +1310,12 @@ public class BookingServiceImpl implements BookingService {
 		try {
 			flightID = flightRepository.getFlightId(update.getFlight_id());
 		} catch (Exception e) {
-
+			logger.error(" Check some Null Exception Occoured Flight ID ");
 		}
 		boolean checkDay = utilities.validDay(update.getDates());
 		if (checkDay == false) {
 			response.setStatus(404);
-			response.setMessage(constant.DAYNOTVALID);
+			response.setMessage(BookingConstant.DAYNOTVALID);
 			return response;
 		}
 		if (flightID == update.getFlight_id()) {
@@ -1296,7 +1333,7 @@ public class BookingServiceImpl implements BookingService {
 			return response;
 		} else {
 			response.setStatus(404);
-			response.setMessage(constant.NOTMATCHEDFLIGHTID);
+			response.setMessage(BookingConstant.NOTMATCHEDFLIGHTID);
 			return response;
 		}
 	}
@@ -1324,25 +1361,11 @@ public class BookingServiceImpl implements BookingService {
 		int userId = 0;
 		try {
 			userId = userRepository.getUserIds(theater.getUserid());
-			fromdate = theatreRepository.getfromDate(theater.getMovie(), theater.getLocation(),
-					theater.getNumberofseats());
-			todate = theatreRepository.getToDate(theater.getMovie(), theater.getLocation(), theater.getNumberofseats());
+			//			fromdate = theatreRepository.getfromDate(theater.getMovie(), theater.getLocation(),
+			//					theater.getNumberofseats());
+			//			todate = theatreRepository.getToDate(theater.getMovie(), theater.getLocation(), theater.getNumberofseats());
 		} catch (Exception e) {
-
-		}
-
-		if (fromdate == null && todate == null) {
-			theaterObject.setMessage("Theater Not Available in your location");
-			theaterObject.setStatus(404);
-			theaterObject.setTheatreList(null);
-			return theaterObject;
-		}
-
-		if (utilities.validateJavaDate(theater.getDate()) == false) {
-			theaterObject.setMessage("Please Enter Valid Date format (DD/MM/YYYY)");
-			theaterObject.setStatus(404);
-			theaterObject.setTheatreList(null);
-			return theaterObject;
+			logger.error(" Check some Null Exception Occoured ");
 		}
 		if (userId == 0) {
 			theaterObject.setMessage("User ID Not Matched");
@@ -1350,21 +1373,38 @@ public class BookingServiceImpl implements BookingService {
 			theaterObject.setTheatreList(null);
 			return theaterObject;
 		}
+		//		if (fromdate == null && todate == null) {
+		//			theaterObject.setMessage(BookingConstant.THEATERNOTAVAILABLE);
+		//			theaterObject.setStatus(404);
+		//			theaterObject.setTheatreList(null);
+		//			return theaterObject;
+		//		}
 
+		//		if (utilities.validateJavaDate(theater.getDate()) == false) {
+		//			theaterObject.setMessage(BookingConstant.VALIDDATES);
+		//			theaterObject.setStatus(404);
+		//			theaterObject.setTheatreList(null);
+		//			return theaterObject;
+		//		}
+
+		fromdate= "18/02/2022";
+		todate= "28/02/2022";
 		try {
 			dates = utilities.datebetween(fromdate, todate, theater.getDate());
 		} catch (ParseException e) {
 			// TODO Auto-generated catch block
+			logger.error(" Check some Null Exception Occoured ");
 			e.printStackTrace();
+
 		}
 		if (dates == true) {
-			theaterObject.setMessage("Available Theater is Listed Out" + dates);
+			theaterObject.setMessage("Available Theater is Listed Out" );
 			theaterObject.setStatus(200);
 			theaterObject.setTheatreList(theatreRepository.getTheater(theater.getMovie(), theater.getLocation(),
 					theater.getNumberofseats()));
 			return theaterObject;
 		} else {
-			theaterObject.setMessage("Theater Not Available in your location");
+			theaterObject.setMessage(BookingConstant.THEATERNOTAVAILABLE);
 			theaterObject.setStatus(404);
 			theaterObject.setTheatreList(null);
 			return theaterObject;
@@ -1390,14 +1430,6 @@ public class BookingServiceImpl implements BookingService {
 		String cancelRule = null;
 		String seatPrice = null;
 		String availableSeat = null;
-
-		String seats = bookDeails.getSeats();
-		JSONObject seatJson = new JSONObject(seats);
-		String economicSeat = seatJson.get(constant.Economic).toString();
-		String businessSeat = seatJson.get(constant.Business).toString();
-		List<String> selectEconomicList = utilities.createList(economicSeat);
-		List<String> selectBusinessList = utilities.createList(businessSeat);
-		System.out.println(selectEconomicList + "" + selectBusinessList);
 		int theaterid = 0;
 		int systemId = 0;
 		int userId = 0;
@@ -1405,31 +1437,53 @@ public class BookingServiceImpl implements BookingService {
 		String bookedTime = null;
 		String cardNumber = null;
 		int max = 0;
+		int countOfBookingId=0;
+		String seats = bookDeails.getSeats();
+		JSONObject seatJson = new JSONObject(seats);
+		String economicSeat = seatJson.get(BookingConstant.Economic).toString();
+		String businessSeat = seatJson.get(BookingConstant.Business).toString();
+		List<String> selectEconomicList = utilities.createList(economicSeat);
+		List<String> selectBusinessList = utilities.createList(businessSeat);
+		System.out.println(selectEconomicList + "" + selectBusinessList);
+
+		try {
+			userId = userRepository.getUserIds(bookDeails.getUserid());
+			countOfBookingId = bookingTheaterRepository.searchId(bookDeails.getBookingid());
+		}
+		catch(Exception e){
+			System.out.println("error"+countOfBookingId);
+		}
+		logger.warn("count"+countOfBookingId);
+		if(countOfBookingId==0)
+		{	response.setStatus(404);
+		response.setMessage(BookingConstant.NOTMATCHEDFLIGHTID);
+		return response;
+		}
+		if(userId==0) {
+			response.setStatus(404);
+			response.setMessage(BookingConstant.NOTMATCHEDFLIGHTID);
+			return response;
+		}
+
 		try {
 			theaterid = bookingTheaterRepository.searchTheaterId(bookDeails.getBookingid());
 			systemId = cancelationRuleRepository.getSystemId(theaterid);
-			userId = userRepository.getUserIds(bookDeails.getUserid());
 			cancelRule = cancelationRuleRepository.getrule(theaterid);
 			seatPrice = theatreRepository.getPrice(theaterid);
 			availableSeat = theatreRepository.getSeats(theaterid);
 			availableBookSeat = bookingTheaterRepository.getBookSeats(bookDeails.getBookingid());
 			bookedTime = bookingTheaterRepository.getBookedTime(bookDeails.getBookingid());
 			max = transactionRepository.maxTransactionId();
-			// cardNumber = transactionRepository.getCardNumber(bookDeails.getBookingid());
+			cardNumber = transactionRepository.getCardNumber(bookDeails.getBookingid());
 
 		} catch (Exception e) {
 			// logger
 
-			System.out.println("error happened in try" + theaterid + "s" + systemId + "u" + userId + cancelRule
-					+ seatPrice + availableSeat + availableBookSeat + bookedTime);
-		}
-
-		System.out.println("success happened in try" + theaterid + "s" + systemId + "u" + userId + cancelRule
-				+ seatPrice + availableSeat + availableBookSeat);
+			logger.error(" Check some Null Exception Occoured ");	}
 
 		JSONObject availableSeatJson = new JSONObject(availableSeat);
-		String economicSeats = availableSeatJson.get(constant.Economic).toString();
-		String businessSeats = availableSeatJson.get(constant.Business).toString();
+		String economicSeats = availableSeatJson.get(BookingConstant.Economic).toString();
+		String businessSeats = availableSeatJson.get(BookingConstant.Business).toString();
 		List<String> newEconomicList = utilities.createList(economicSeats);
 		List<String> newBusinessList = utilities.createList(businessSeats);
 		System.out.println("values" + theaterid + "s" + systemId + "u" + userId + cancelRule + seatPrice + availableSeat
@@ -1455,8 +1509,8 @@ public class BookingServiceImpl implements BookingService {
 		theatreRepository.updateBusinessSeat(newBusinessList.size(), theaterid);
 		System.out.println(newEconomicList + "added" + newBusinessList);
 		JSONObject availableBookSeatJson = new JSONObject(availableBookSeat);
-		String economicBookSeats = availableBookSeatJson.get(constant.Economic).toString();
-		String businessBookSeats = availableBookSeatJson.get(constant.Business).toString();
+		String economicBookSeats = availableBookSeatJson.get(BookingConstant.Economic).toString();
+		String businessBookSeats = availableBookSeatJson.get(BookingConstant.Business).toString();
 		List<String> newEconomicBookList = utilities.createList(economicBookSeats);
 		List<String> newBusinessBookList = utilities.createList(businessBookSeats);
 		boolean seatSearchBookEconomic = utilities.search(newEconomicBookList, selectEconomicList);
@@ -1485,8 +1539,8 @@ public class BookingServiceImpl implements BookingService {
 			Map<String, List<Integer>> dict = new HashMap<String, List<Integer>>();
 			List<Integer> integerList = newEconomicList.stream().map(Integer::valueOf).collect(Collectors.toList());
 			List<Integer> integerBList = newBusinessList.stream().map(Integer::valueOf).collect(Collectors.toList());
-			dict.put(constant.Business, integerBList);
-			dict.put(constant.Economic, integerList);
+			dict.put(BookingConstant.Business, integerBList);
+			dict.put(BookingConstant.Economic, integerList);
 			JSONObject newSeatJson = new JSONObject(dict);
 			theatreRepository.updateSeat(newSeatJson.toString(), theaterid);
 			System.out.println(seatSearchBookEconomic + "afterremove1358" + newSeatJson);
@@ -1495,8 +1549,8 @@ public class BookingServiceImpl implements BookingService {
 					.collect(Collectors.toList());
 			List<Integer> integerBListBook = newBusinessBookList.stream().map(Integer::valueOf)
 					.collect(Collectors.toList());
-			dictBook.put(constant.Business, integerBListBook);
-			dictBook.put(constant.Economic, integerListBook);
+			dictBook.put(BookingConstant.Business, integerBListBook);
+			dictBook.put(BookingConstant.Economic, integerListBook);
 			JSONObject newSeatBookJson = new JSONObject(dictBook);
 			System.out.println(seatSearchBookEconomic + "afterremove1367" + newSeatBookJson);
 			bookingTheaterRepository.updateSeat(newSeatBookJson.toString(), bookDeails.getBookingid());
@@ -1507,12 +1561,12 @@ public class BookingServiceImpl implements BookingService {
 			System.out.println(seatSearchBookEconomic + "difference" + seatSearchBookBusiness);
 			JSONObject ruleJson = new JSONObject(cancelRule);
 			JSONObject price = new JSONObject(seatPrice);
-			int business = (int) price.get(constant.Business);
-			int economic = (int) price.get(constant.Economic);
-			int offers = (int) ruleJson.get(constant.Offers);
-			int cancelfour = (int) ruleJson.get(constant.CancelWithin4);
-			int cancelationCharge = (int) ruleJson.get(constant.CancelationCharge);
-			int aftercancel = (int) ruleJson.get(constant.Before1hr);
+			int business = (int) price.get(BookingConstant.Business);
+			int economic = (int) price.get(BookingConstant.Economic);
+			int offers = (int) ruleJson.get(BookingConstant.Offers);
+			int cancelfour = (int) ruleJson.get(BookingConstant.CancelWithin4);
+			int cancelationCharge = (int) ruleJson.get(BookingConstant.CancelationCharge);
+			int aftercancel = (int) ruleJson.get(BookingConstant.Before1hr);
 			int afterAppliedCharge = 0;
 			int economicPrice;
 			int businessPrice;
@@ -1540,9 +1594,8 @@ public class BookingServiceImpl implements BookingService {
 
 			String emailUserId = userRepository.getEmailId(userId);
 			afterAppliedCharge = afterAppliedCharge - (afterAppliedCharge * cancelationCharge) / 100;
-			String mailContent = "Cancelation Successful your Canceled Seat is" + seatJson + "Seat Amount" + totalAmount
-					+ "After Cancelation Charges Applied The amount will transerd to your account within 2days amount is"
-					+ afterAppliedCharge;
+			String mailContent = BookingConstant.CANCELSUCESS + seatJson + "Seat Amount" + totalAmount
+					+ BookingConstant.CANCELSUCESSCHARGE + afterAppliedCharge;
 
 			sendEmail(mailContent, emailUserId);
 			System.out.println("time Difference" + bookedTime + "n" + now.toString() + "diff" + difference + "cancel"
@@ -1558,7 +1611,7 @@ public class BookingServiceImpl implements BookingService {
 			String transactionID = "TRA" + utilities.randomNumber(5, max);
 			transaction.setTransactionid(transactionID);
 			transaction.setBookingid(bookDeails.getBookingid());
-			transaction.setCardnumber("12345678");
+			transaction.setCardnumber(cardNumber);
 			transaction.setCvv(111);
 			transaction.setValidthrough("11/2030");
 			transaction.setUserid(userId);
@@ -1566,11 +1619,11 @@ public class BookingServiceImpl implements BookingService {
 
 			transactionRepository.save(transaction);
 			response.setStatus(200);
-			response.setMessage(constant.CANCELED + constant.AMOUNT + afterAppliedCharge);
+			response.setMessage(BookingConstant.CANCELED + BookingConstant.AMOUNT + afterAppliedCharge);
 
 		} else {
 			response.setStatus(404);
-			response.setMessage("Selected Seat and Booking ID Not Matched Please Check");
+			response.setMessage(BookingConstant.SEATNOTMATCH);
 		}
 
 		return response;
@@ -1605,12 +1658,13 @@ public class BookingServiceImpl implements BookingService {
 			userid = bookingTheaterRepository.getbookUserId(bookDeails.getBookingid());
 
 		} catch (Exception e) {
-			max = 0;
+			logger.error(" Check some Null Exception Occoured ");
 		}
+
 		System.out.println(paymentStatus + "paymnetStatus" + bookAmount + "aa" + bookidcount);
 		if (bookAmount != bookDeails.getAmount()) {
 			response.setStatus(404);
-			response.setMessage(constant.AmountNotMatch);
+			response.setMessage(BookingConstant.AmountNotMatch);
 			return response;
 		}
 		if (bookidcount != 0 && bookAmount == bookDeails.getAmount() && paymentStatus.equals("Pending")) {
@@ -1633,10 +1687,10 @@ public class BookingServiceImpl implements BookingService {
 			transactionRepository.save(bookDeails);
 
 			response.setStatus(200);
-			response.setMessage(constant.PAYMENTSUCCESS);
+			response.setMessage(BookingConstant.PAYMENTSUCCESS);
 		} else {
 			response.setStatus(404);
-			response.setMessage(constant.PAYMENTNOTSUCCESS);
+			response.setMessage(BookingConstant.PAYMENTNOTSUCCESS);
 		}
 		return response;
 	}
@@ -1689,13 +1743,13 @@ public class BookingServiceImpl implements BookingService {
 		try {
 			theaterID = theatreRepository.getTheatreid(update.getTheaterid());
 		} catch (Exception e) {
-
+			logger.error(" Check some Null Exception Occoured Theater ID ");
 		}
 		boolean checkDay = utilities.validateJavaDate(update.getTodate());
 		boolean checkDayfrom = utilities.validateJavaDate(update.getFromdate());
 		if (checkDay == false && checkDayfrom == false) {
 			response.setStatus(404);
-			response.setMessage("Please Enter Valid Day DD/MM/YYYY");
+			response.setMessage(BookingConstant.DATENOTVALID);
 			return response;
 		}
 		if (theaterID == update.getTheaterid()) {
@@ -1704,17 +1758,36 @@ public class BookingServiceImpl implements BookingService {
 			dict.put("economic", update.getPrice().getEconomic());
 			JSONObject price = new JSONObject(dict);
 			String[] days = new DateFormatSymbols().getWeekdays();
+			List<Integer> businessList = new ArrayList<>();
+			List<Integer> economicList = new ArrayList<>();
+			Map<String, List<Integer>> dictupdate = new HashMap<String, List<Integer>>();
+			int businessSeat = update.getNumberofbusinessseat();
+			int economicSeat = update.getNumberofeconomicseat();
+			for (int i = 1; i < businessSeat + 1; i++) {
+				businessList.add(i);
+			}
+			for (int i = 1; i < economicSeat + 1; i++) {
+				economicList.add(i);
+			}
+			dictupdate.put(BookingConstant.Business, businessList);
+			dictupdate.put(BookingConstant.Economic, economicList);
 
-			theatreRepository.updateTheater(update.getFromdate(), update.getTodate(), update.getMoviename(),
-					price.toString(), theaterID);
-			response.setMessage(
-					price + "" + dict + "Details" + update.getFromdate() + update.getTheaterid() + update.getFromdate()
-					+ update.getPrice().getBusiness() + update.getPrice().getEconomic() + days + checkDay);
+			JSONObject jsonupdate = new JSONObject(dictupdate);
+			theatreRepository.updateTheater(update.getFromdate(), update.getTodate(), price.toString(),
+					update.getMoviename(), theaterID);
+			theatreRepository.updateTheaterSeat(jsonupdate.toString(), theaterID);
+			theatreRepository.updateBusinessSeat(businessSeat, theaterID);
+			theatreRepository.updateEconomicSeat(economicSeat, theaterID);
+			bookingTheaterRepository.deleteTheaterBooking(theaterID);
+
+			response.setMessage("Theater ID " + update.getTheaterid()+" . " + BookingConstant.UPDATETHEATER + " " + dict
+					+ " . Updated From Date" + update.getFromdate() + " . Updated To Date" + update.getTodate()
+					+ " . Updated Movie Name " + update.getMoviename());
 			response.setStatus(200);
 			return response;
 		} else {
 			response.setStatus(404);
-			response.setMessage("Theater ID Not Matched");
+			response.setMessage(BookingConstant.THEATERIDNOTVALID);
 			return response;
 		}
 
@@ -1732,21 +1805,72 @@ public class BookingServiceImpl implements BookingService {
 	@Override
 	public ResponseObject deleteTheater(TheaterDelete delete) throws SQLException {
 		int theaterID = 0;
+		String reports = null;
 		try {
 			theaterID = theatreRepository.getTheatreid(delete.getTheaterid());
 		} catch (Exception e) {
-
+			logger.error(" Check some Null Exception Occoured ");
 		}
-		System.out.println("Flight ID" + theaterID);
-		if (theaterID != 0) {
+		System.out.println("Theater Id " + theaterID);
+
+		if (theaterID == 0) {
+			response.setStatus(404);
+			response.setMessage(BookingConstant.NOTMATCHEDFLIGHTID);
+		} else {
+
+			List<Integer> testing = bookingTheaterRepository.getUserIdForReport(theaterID);
+
+			for (Integer i : testing) {
+				// Print all elements of ArrayList
+				String emails = userRepository.getEmailId(i);
+				reports = "Theater ID" + theaterID
+						+ " Has not been available today your Booked Amound will send To your given accunt any clarification please contact theater office . Sorry for Inconveince";
+				sendEmailDeleteStatus(reports, emails);
+				System.out.println(emails);
+			}
 			theatreRepository.deleteTheater(theaterID);
 			response.setStatus(200);
-			response.setMessage("Theater ID " + delete.getTheaterid() + constant.DELETED);
-		} else {
-			response.setStatus(404);
-			response.setMessage(constant.NOTMATCHEDFLIGHTID);
+			response.setMessage("Theater ID " + delete.getTheaterid() + BookingConstant.DELETED);
+
 		}
 		return response;
 
 	}
+
+	public void sendEmailDeleteStatus(String rep, String mailid) {
+		// for Send Mail
+		SimpleMailMessage msg = new SimpleMailMessage();
+		msg.setTo(mailid);
+		msg.setSubject(" Urgent Update Theater Not Available Today  ");
+		msg.setText(rep);
+		javaMailSender.send(msg); // Send mail
+	}
+
+	public void sendEmailDeleteStatusFlight(String rep, String mailid) {
+		// for Send Mail
+		SimpleMailMessage msg = new SimpleMailMessage();
+		msg.setTo(mailid);
+		msg.setSubject(" Urgent Update Flight Not Available  ");
+		msg.setText(rep);
+		javaMailSender.send(msg); // Send mail
+	}
+
+	@Override
+	public List<Integer> test() {
+		// TODO Auto-generated method stub
+
+		List<Integer> testing = bookingFlight.getUserIdForReport(15458);
+
+		for (Integer i : testing) {
+
+			// Print all elements of ArrayList
+			String emails = userRepository.getEmailId(i);
+
+			System.out.println(emails);
+		}
+		return testing;
+	}
+
+
+
 }

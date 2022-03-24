@@ -8,14 +8,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.example.bookingsystem.dto.FlightBookingDto;
+import com.example.bookingsystem.constant.BookingConstant;
 import com.example.bookingsystem.dto.FlightDelete;
 import com.example.bookingsystem.entity.CancelationOffer;
 import com.example.bookingsystem.entity.FlightBooking;
@@ -56,6 +55,8 @@ public class BookingAdminController {
 	@Autowired
 	private BookingFlightRepository bookingFlight;
 
+	BookingConstant constant = new BookingConstant();
+
 	BookingUtilities utilities = new BookingUtilities();
 
 	/**
@@ -65,7 +66,7 @@ public class BookingAdminController {
 	 *
 	 * After Hit this request data was saved to database with unique flight name
 	 *
-	 *ALso default Cancelation Rule Mapped With Generated Flight ID
+	 * ALso default Cancelation Rule Mapped With Generated Flight ID
 	 *
 	 * Admin can change rules in future
 	 *
@@ -84,15 +85,14 @@ public class BookingAdminController {
 	 *
 	 */
 	@PostMapping("/addflight")
-	@ApiOperation(value = "Add new Flight Details")
+	@ApiOperation(value = BookingConstant.ADDFLIGHTDOC)
 	public ResponseEntity<ResponseObject> addFlightDetails(
-			@ApiParam(value = "Add flight Object object store in database table", required = true) @Valid @RequestBody FlightDetails flight)
+			@ApiParam(value = BookingConstant.PARAMDOCADDFLIGHT, required = true) @Valid @RequestBody FlightDetails flight)
 					throws SQLException {
 
 		ResponseObject savedFlights = bookingService.addFights(flight);
 		return new ResponseEntity<ResponseObject>(savedFlights, HttpStatus.ACCEPTED);
 	}
-
 
 	/**
 	 * This Post Request is used to Add Theater Details.
@@ -102,8 +102,8 @@ public class BookingAdminController {
 	 *
 	 * Unique theater name is allowed
 	 *
-	 * @Value used SearchFlightTickets.class for Request Entity
-	 * @return BookingObject This status Code With Message Value.
+	 * @Value used TheatreDetails.class for Request Entity
+	 * @return ResponseObject This status Code With Message Value.
 	 *
 	 *         Input { "times": "10am", "theatrename": "INOX1", "price":
 	 *         "{economic:100,business:200}", "economyclassseats": 20,
@@ -112,9 +112,9 @@ public class BookingAdminController {
 	 *
 	 */
 	@PostMapping("/addtheater")
-	@ApiOperation(value = "Add new Flight Details")
+	@ApiOperation(value = BookingConstant.ADDFLIGHTDOC)
 	public ResponseEntity<ResponseObject> addTheaterDetails(
-			@ApiParam(value = "Add flight Object object store in database table", required = true) @Valid @RequestBody TheatreDetails theater)
+			@ApiParam(value =BookingConstant.ADDFLIGHTDOC, required = true) @Valid @RequestBody TheatreDetails theater)
 					throws SQLException {
 
 		ResponseObject savedTheaters = bookingService.addTheatre(theater);
@@ -144,11 +144,11 @@ public class BookingAdminController {
 	// HttpStatus.ACCEPTED);
 	// }
 
-	@PostMapping("/bookingRequest")
-	public FlightBooking placeOrder(@RequestBody FlightBookingDto request) {
-
-		return bookingFlight.save(request.getBookingFlights());
-	}
+	//	@PostMapping("/bookingRequest")
+	//	public FlightBooking placeOrder(@RequestBody FlightBookingDto request) {
+	//
+	//		return bookingFlight.save(request.getBookingFlights());
+	//	}
 
 	// @PutMapping("/cancelbookflight")
 	// @ApiOperation(value = "Add book flight Payment")
@@ -238,26 +238,46 @@ public class BookingAdminController {
 	// return new ResponseEntity<FlightObject>(flightsDetails, HttpStatus.ACCEPTED);
 	// }
 
+	/**
+	 * This Request for Update cancelRules For update offers cancellation charge
+	 * before and After Charges
+	 *
+	 * also Admin can add offer
+	 *
+	 * @Value used CancelationOffer.class for Request Entity
+	 *
+	 * @return ResponseObject This status Code With Message Value
+	 *
+	 */
 	@PutMapping("/cancelationRuleUpdate")
 	ResponseEntity<ResponseObject> cancelRuleUpdate(
-			@ApiParam(value = "Add Cancel Object object store in database table", required = true) @Valid @RequestBody CancelationOffer flight)
+			@ApiParam(value = BookingConstant.PARAMDOCUPDATECANCELATIONRULE, required = true) @Valid @RequestBody CancelationOffer flight)
 					throws SQLException {
 		ResponseObject flightsDetails = bookingService.cancelationRuleUpdate(flight);
 		return new ResponseEntity<ResponseObject>(flightsDetails, HttpStatus.ACCEPTED);
 	}
 
-	@GetMapping("/check")
-	public String checking(@RequestBody UpdateFlight flights) {
+	//	@GetMapping("/check")
+	//	public String checking(@RequestBody UpdateFlight flights) {
+	//
+	//		int ahr = flights.getPrice().getBusiness();
+	//
+	//		return "values" + ahr;
+	//	}
 
-		int ahr = flights.getPrice().getBusiness();
-
-		return "values" + ahr;
-	}
-
+	/**
+	 * This Delete Request is used to delete theater With theater ID.
+	 *
+	 * @Value used TheaterDelete.class for Request Entity
+	 * @return ResponseObject This status Code With Message Value.
+	 *
+	 *         Input { "theaterid":28039 }
+	 *
+	 */
 	@DeleteMapping("/deleteflight")
-	@ApiOperation(value = "Add book flight")
+	@ApiOperation(value = BookingConstant.DELETEFLIGHTDOC)
 	public ResponseEntity<ResponseObject> deleteflight(
-			@ApiParam(value = "Add Book Object object store in database table", required = true) @Valid @RequestBody FlightDelete book)
+			@ApiParam(value = BookingConstant.PARAMDOCDELETEFLIGHT, required = true) @Valid @RequestBody FlightDelete book)
 					throws SQLException {
 
 		ResponseObject deleteConfirm = bookingService.deleteFlight(book);
@@ -265,10 +285,19 @@ public class BookingAdminController {
 		return new ResponseEntity<ResponseObject>(deleteConfirm, HttpStatus.ACCEPTED);
 	}
 
+	/**
+	 * This Delete Request is used to delete theater With theater ID.
+	 *
+	 * @Value used TheaterDelete.class for Request Entity
+	 * @return ResponseObject This status Code With Message Value.
+	 *
+	 *         Input { "theaterid":28039 }
+	 *
+	 */
 	@DeleteMapping("/deleteTheater")
-	@ApiOperation(value = "Add book flight")
+	@ApiOperation(value = BookingConstant.DELETETHEATERDOC)
 	public ResponseEntity<ResponseObject> deleteTheater(
-			@ApiParam(value = "Add Book Object object store in database table", required = true) @Valid @RequestBody TheaterDelete book)
+			@ApiParam(value = BookingConstant.PARAMDOCDELETETHEATER, required = true) @Valid @RequestBody TheaterDelete book)
 					throws SQLException {
 
 		ResponseObject deleteConfirm = bookingService.deleteTheater(book);
@@ -276,17 +305,39 @@ public class BookingAdminController {
 		return new ResponseEntity<ResponseObject>(deleteConfirm, HttpStatus.ACCEPTED);
 	}
 
+	/**
+	 * This Service method is used to Find theater with location and Movie Name.
+	 *
+	 * This method is get all theater data with given condition is Satisfied Date
+	 * ,Movie name ,Location
+	 *
+	 * @Value used CancelBooking.class for Request Entity
+	 * @return ResponseObject This status Code With Message Value.
+	 *
+	 *         Input { "theaterid":28039 }
+	 *
+	 */
 	@PutMapping("/updateFlight")
 	ResponseEntity<ResponseObject> flightUpdate(
-			@ApiParam(value = "Add Cancel Object object store in database table", required = true) @Valid @RequestBody UpdateFlight flight)
+			@ApiParam(value =BookingConstant.PARAMDOCUPDATEFLIGHT, required = true) @Valid @RequestBody UpdateFlight flight)
 					throws SQLException {
 		ResponseObject updateDetails = bookingService.updateFlight(flight);
 		return new ResponseEntity<ResponseObject>(updateDetails, HttpStatus.ACCEPTED);
 	}
 
+	/**
+	 * This Service method is used to Update theater With theater ID . This service
+	 * used to update from date,to date,movie name ,Price Values
+	 *
+	 * @Value used UpdateTheater.class for Request Entity
+	 * @return ResponseObject This status Code With Message Value.
+	 *
+	 *         Input { "theaterid":28039 }
+	 *
+	 */
 	@PutMapping("/updateTheater")
 	ResponseEntity<ResponseObject> theaterUpdate(
-			@ApiParam(value = "Add Cancel Object object store in database table", required = true) @Valid @RequestBody UpdateTheater theater)
+			@ApiParam(value = BookingConstant.PARAMDOCUPDATETHEATER, required = true) @Valid @RequestBody UpdateTheater theater)
 					throws SQLException {
 		ResponseObject updateDetails = bookingService.updateTheater(theater);
 		return new ResponseEntity<ResponseObject>(updateDetails, HttpStatus.ACCEPTED);

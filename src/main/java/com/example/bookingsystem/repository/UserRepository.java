@@ -1,5 +1,7 @@
 package com.example.bookingsystem.repository;
 
+import java.util.List;
+
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -25,4 +27,8 @@ public interface UserRepository extends  JpaRepository<User, Long>{
 
 	@Query(value = "select email from users u where u.userid =:userid", nativeQuery = true)//change to count
 	String getEmailId(@Param("userid") int userid);
+
+	@Query(value = "select email from users", nativeQuery = true)//change to count
+	List<String> allEmail();
+
 }

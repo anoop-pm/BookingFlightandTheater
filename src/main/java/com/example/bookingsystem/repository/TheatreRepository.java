@@ -38,12 +38,12 @@ public interface TheatreRepository extends JpaRepository<TheatreDetails, Long> {
 	@Query(value = "select * from theatre_details u where u.moviename =:movie and u.location=:location  and u.economy_class_seats + u.business_class_seats >= :noOfSeat", nativeQuery = true)
 	List<TheatreDetails> getTheater(@Param("movie") String movie, @Param("location") String location,@Param("noOfSeat") int noOfSeat);
 
+
 	@Query(value = "select todate from theatre_details u where u.moviename =:movieto and u.location=:locationto  and u.economy_class_seats + u.business_class_seats >= :noOfSeatto", nativeQuery = true)
 	String getToDate(@Param("movieto") String movieto, @Param("locationto") String locationto,@Param("noOfSeatto") int noOfSeatto);
 
 	@Query(value = "select fromdate from theatre_details u where u.moviename =:moviefrom and u.location=:locationfrom  and u.economy_class_seats + u.business_class_seats >= :noOfSeatfrom", nativeQuery = true)
 	String getfromDate(@Param("moviefrom") String moviefrom, @Param("locationfrom") String locationfrom,@Param("noOfSeatfrom") int noOfSeatfrom);
-
 
 
 	@Transactional
@@ -66,6 +66,12 @@ public interface TheatreRepository extends JpaRepository<TheatreDetails, Long> {
 	@Modifying
 	@Query("UPDATE TheatreDetails SET fromdate = :updatedates,todate = :updatetodates,moviename =:movieNames,price=:newPrice WHERE  theater_id = :updateWithTheaterID")
 	Integer updateTheater(String updatedates,String updatetodates,String newPrice,String movieNames,int updateWithTheaterID);
+
+	@Transactional
+	@Modifying
+	@Query("UPDATE TheatreDetails SET seats = :updatSeat WHERE  theater_id = :updateWithTheaterID")
+	Integer updateTheaterSeat(String updatSeat,int updateWithTheaterID);
+
 
 	@Transactional
 	@Modifying

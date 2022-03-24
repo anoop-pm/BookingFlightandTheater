@@ -25,13 +25,13 @@ public class TheatreDetails {
 	private String theatrename;
 
 	@NotNull
-	@Min(value=1,message="Please Enter Business Class Seat")
+	@Min(value = 1, message = "Please Enter Business Class Seat")
 	@Column(name = "business_class_seats", length = 45)
 	@ApiModelProperty(notes = "The application-specific Number Of Business class Seats")
 	private int businessclassseats;
 
 	@NotNull
-	@Min(value=1,message="Please Enter Economic Class Seat")
+	@Min(value = 1, message = "Please Enter Economic Class Seat")
 	@Column(name = "economy_class_seats", length = 45)
 	@ApiModelProperty(notes = "The application-specific Number of Economy class Seats")
 	private int economyclassseats;
@@ -45,17 +45,14 @@ public class TheatreDetails {
 	@ApiModelProperty(notes = "The application-specific Flight Name")
 	private String times;
 
-	@NotNull
 	@Column(name = "fromdate", length = 2000)
 	@ApiModelProperty(notes = "The application-specific Flight Name")
 	private String fromdate;
 
-	@NotNull
 	@Column(name = "todate", length = 2000)
 	@ApiModelProperty(notes = "The application-specific Flight Name")
 	private String todate;
 
-	@NotNull
 	@Column(name = "moviename", length = 200)
 	@ApiModelProperty(notes = "The application-specific Flight Name")
 	private String moviename;

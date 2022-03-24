@@ -7,6 +7,7 @@ import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.Table;
 import javax.validation.constraints.Email;
+import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
@@ -38,6 +39,7 @@ public class User {
 	@NotNull
 	@Column(name = "age", length = 45)
 	@Min(value=1,message="Please Fill Age")
+	@Max(value=100,message="Please Fill Age")
 	@ApiModelProperty(notes = "The application-specific Age")
 	private int age;
 

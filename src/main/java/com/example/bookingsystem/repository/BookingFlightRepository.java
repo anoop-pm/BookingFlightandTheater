@@ -1,5 +1,7 @@
 package com.example.bookingsystem.repository;
 
+import java.util.List;
+
 import javax.transaction.Transactional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -27,6 +29,9 @@ public interface BookingFlightRepository extends JpaRepository<FlightBooking, Lo
 
 	@Query(value = "select count(user_id) from flight_booking u where u.user_id=:searchBookingUserID ", nativeQuery = true)
 	Integer searchUserId(@Param("searchBookingUserID") int searchBookingUserID);
+
+	@Query(value = "select user_id from flight_booking u where u.flight_id =:flightsById", nativeQuery = true)
+	List<Integer> getUserIdForReport(@Param("flightsById") int flightsById);
 
 	@Query(value = "select flight_id from flight_booking u where u.booking_id=:searchBookingID ", nativeQuery = true)
 	Integer searchFlightId(@Param("searchBookingID") int searchBookingID);

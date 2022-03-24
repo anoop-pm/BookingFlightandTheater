@@ -6,8 +6,10 @@ import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.Table;
+import javax.validation.constraints.Min;
 import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
+import javax.validation.constraints.Size;
 
 import io.swagger.annotations.ApiModelProperty;
 
@@ -35,15 +37,19 @@ public class TransactionStatus {
 
 
 	@Column(name = "cardnumber", length = 200)
+	@NotEmpty
+	@Size(min = 12, max = 14, message = "CardNumber should have  12 to 14 characters")
 	@ApiModelProperty(notes = "The application-specific Date of Birth")
 	private String cardnumber;
 
-
+	@NotEmpty
 	@Column(name = "validthrough", length = 200)
 	@ApiModelProperty(notes = "The application-specific Date of Birth")
 	private String validthrough;
 
 
+	@NotNull
+	@Min(value=1,message="Please fill CVV")
 	@Column(name = "cvv", length = 200)
 	@ApiModelProperty(notes = "The application-specific Date of Birth")
 	private int cvv;
@@ -53,6 +59,7 @@ public class TransactionStatus {
 	private String transactionid; // selected option id
 
 	@NotNull
+	@Min(value=1,message="Please fill Booking ID")
 	@Column(name = "bookingid", length = 200)
 	@ApiModelProperty(notes = "The application-specific Date of Birth")
 	private int bookingid; // selected option id

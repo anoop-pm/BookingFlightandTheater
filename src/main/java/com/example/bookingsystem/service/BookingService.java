@@ -50,6 +50,8 @@ public interface BookingService {
 	public ResponseObject cancelationRuleUpdate(CancelationOffer cancelUpdate) throws SQLException;
 	public ResponseObject cancelFlightTicket(CancelBooking bookDeails) throws SQLException;
 	public ResponseObject cancelTheaterTicket(CancelBooking bookDeails) throws SQLException;
-	List<FlightBooking> getAllPassangersCustom(int page);
+	public List<Integer> test() ;
+
+	//	List<FlightBooking> getAllPassangersCustom(int page);
 
 }
